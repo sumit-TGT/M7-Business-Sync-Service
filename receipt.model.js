@@ -1,49 +1,37 @@
-const Receipt = require('../models/receipt.model');
-const syncQuickBooks = require('../services/syncQuickBooks');
-const syncZoho = require('../services/syncZoho');
-const syncTally = require('../services/syncTally');
+// models/receipt.model.js
 
-exports.createReceipt = async (req, res, next) => {
-  try {
-    const receipt = await Receipt.create(req.body);
-    res.status(201).json(receipt);
-  } catch (err) {
-    next(err);
+const mongoose = require('mongoose');
+
+const ItemSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  qty: { type: Number, required: true },
+  price: { type: Number, required: true }
+});
+
+const ReceiptSchema = new mongoose.Schema({
+  platform: {
+    type: String,
+    enum: ['quickbooks', 'zoho', 'tally'],
+    required: true
+  },
+  amount: {
+    type: Number,
+    required: true
+  },
+  date: {
+    type: Date,
+    required: true
+  },
+  customer: {
+    type: String,
+    required: true
+  },
+  items: {
+    type: [ItemSchema],
+    required: true,
+    validate: [arr => arr.length > 0, 'At least one item is required']
   }
-};
+}, { timestamps: true });
 
-exports.syncReceipt = async (req, res, next) => {
-  try {
-    const receipt = await Receipt.findById(req.params.id);
-    if (!receipt) return res.status(404).json({ message: 'Receipt not found' });
+module.exports = mongoose.model('Receipt', ReceiptSchema);
 
-    let result;
-    switch (receipt.platform) {
-      case 'quickbooks':
-        result = await syncQuickBooks(receipt);
-        break;
-      case 'zoho':
-        result = await syncZoho(receipt);
-        break;
-      case 'tally':
-        result = await syncTally(receipt);
-        break;
-      default:
-        return res.status(400).json({ message: 'Unsupported platform' });
-    }
-
-    res.json({ message: 'Sync successful', result });
-  } catch (err) {
-    next(err);
-  }
-};
-
-exports.getReceipt = async (req, res, next) => {
-  try {
-    const receipt = await Receipt.findById(req.params.id);
-    if (!receipt) return res.status(404).json({ message: 'Receipt not found' });
-    res.json(receipt);
-  } catch (err) {
-    next(err);
-  }
-};
